@@ -202,12 +202,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	//=================================================================================================================
 	//頂点バッファ生成
-	XMFLOAT3 vertices[] =
+	struct Vertex
 	{
-		{0.4f,-0.7f,0.0f},
-		{-0.4f,0.7f,0.0f},
-		{0.4f,-0.7f,0.0f},
-		{0.4f,0.7f,0.0f}
+		XMFLOAT3 pos;
+		XMFLOAT2 uv;
+	};
+	Vertex vertices[] = 
+	{
+		{{-0.4f,-0.7f,0.0f},{0.0f,1.0f}},
+		{{-0.4f,0.7f,0.0f},{0.0f,0.0f}},
+		{{0.4f,-0.7f,0.0f},{1.0f,1.0f}},
+		{{0.4f,0.7f,0.0f},{0.0f,1.0f}},
 	};
 	D3D12_HEAP_PROPERTIES heapprop = {};
 	heapprop.Type = D3D12_HEAP_TYPE_UPLOAD;
@@ -236,7 +241,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			IID_PPV_ARGS(&vertBuff)
 		);
 
-	XMFLOAT3* vertMap = nullptr;
+	Vertex* vertMap = nullptr;
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
 
 	std::copy(std::begin(vertices), std::end(vertices), vertMap);
@@ -349,6 +354,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
 			0
 		},
+		{
+			"TEXCOORD",
+			0,
+			DXGI_FORMAT_R32G32B32_FLOAT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		}
 	};
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpipeline = {};
@@ -449,7 +463,63 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	
 	//=================================================================================================================
 
-	
+	//_add=============================================================================================================
+	struct TexRGBA
+	{
+		unsigned char R, G, B, A;
+	};
+	std::vector<TexRGBA> texturedata(256 * 256);
+
+	for (auto& rgba : texturedata)
+	{
+		rgba.R = rand() % 256,
+			rgba.G = rand() % 256,
+			rgba.B = rand() % 256,
+			rgba.A = 255;
+	}
+
+	D3D12_HEAP_PROPERTIES Texheapprop = {};
+	Texheapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
+	Texheapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	Texheapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+
+	Texheapprop.CreationNodeMask = 0;
+	Texheapprop.VisibleNodeMask = 0;
+
+	D3D12_RESOURCE_DESC resDesc = {};
+	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	resDesc.Width = 256;
+	resDesc.Height = 256;
+	resDesc.DepthOrArraySize = 1;
+	resDesc.SampleDesc.Count=1;
+	resDesc.SampleDesc.Quality = 0;
+	resDesc.MipLevels = 1;
+	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	resDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	ID3D12Resource* texbuff = nullptr;
+	result = _dev->CreateCommittedResource
+	(
+		&Texheapprop,
+		D3D12_HEAP_FLAG_NONE,
+		&resDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		nullptr,
+		IID_PPV_ARGS(&texbuff)
+	);
+	result = texbuff->WriteToSubresource
+	(
+		0,
+		nullptr,
+		texturedata.data(),
+		sizeof(TexRGBA)*256,
+		sizeof(TexRGBA)*texturedata.size()
+	);
+
+	ID3D12DescriptorHeap* texDescHeap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+	//=================================================================================================================
 
 	//ウィンドウ表示
 	ShowWindow(hwnd, SW_SHOW);
