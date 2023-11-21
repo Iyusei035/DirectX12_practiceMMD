@@ -10,7 +10,7 @@
 
 #include<d3dcompiler.h>
 #include<DirectXTex.h>
-
+#include<d3dx12.h>
 #ifdef _DEBUG
 #include<iostream>
 #endif
@@ -209,14 +209,33 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		{{0.5f,0.9f,0.0f} ,{1.0f,0.0f}},//右上
 	};
 
-	D3D12_HEAP_PROPERTIES heapprop = {};
-	heapprop.Type = D3D12_HEAP_TYPE_UPLOAD;
+	//=================================================================
+	ID3D12Resource* vertBuff = nullptr;
+	
+	auto heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+	auto resDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices));
+	
+	result = _dev->CreateCommittedResource
+	(
+		&heapProp,
+		D3D12_HEAP_FLAG_NONE,
+		&resDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&vertBuff)
+	);
+
+	//=================================================================
+
+
+	/*D3D12_HEAP_PROPERTIES heapprop = {};
+	//heapprop.Type = D3D12_HEAP_TYPE_UPLOAD;
 	heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 	heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
 	D3D12_RESOURCE_DESC resdesc = {};
 	resdesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	resdesc.Width = sizeof(vertices);
+	//resdesc.Width = sizeof(vertices);
 	resdesc.Height = 1;
 	resdesc.DepthOrArraySize = 1;
 	resdesc.MipLevels = 1;
@@ -234,7 +253,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		&resdesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
-		IID_PPV_ARGS(&vertBuff));
+		IID_PPV_ARGS(&vertBuff));*/
 
 	Vertex* vertMap = nullptr;
 	result = vertBuff->Map(0, nullptr, (void**)&vertMap);
@@ -253,11 +272,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	ID3D12Resource* idxBuff = nullptr;
 	//設定は、バッファのサイズ以外頂点バッファの設定を使いまわして
 	//OKだと思います。
-	resdesc.Width = sizeof(indices);
+	resDesc.Width = sizeof(indices);
 	result = _dev->CreateCommittedResource(
-		&heapprop,
+		&heapProp,
 		D3D12_HEAP_FLAG_NONE,
-		&resdesc,
+		&resDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&idxBuff));
@@ -449,7 +468,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	uploadHeapProp.VisibleNodeMask = 0;//単一アダプタのため0
 
 
-	D3D12_RESOURCE_DESC resDesc = {};
+	//D3D12_RESOURCE_DESC resDesc = {};
 	resDesc.Format = DXGI_FORMAT_UNKNOWN;
 	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 	auto pixelsize = scratchImg.GetPixelsSize();
@@ -597,15 +616,17 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		//バックバッファのインデックスを取得
 		auto bbIdx = _swapchain->GetCurrentBackBufferIndex();
 
-		D3D12_RESOURCE_BARRIER BarrierDesc = {};
+		/*D3D12_RESOURCE_BARRIER BarrierDesc = {};
 		BarrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 		BarrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 		BarrierDesc.Transition.pResource = _backBuffers[bbIdx];
 		BarrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-		BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;*/
 
-		_cmdList->ResourceBarrier(1, &BarrierDesc);
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(_backBuffers[bbIdx],
+			D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		_cmdList->ResourceBarrier(1, &barrier);
 
 		_cmdList->SetPipelineState(_pipelinestate);
 
@@ -639,10 +660,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		
 
 		_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
-
-		BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-		_cmdList->ResourceBarrier(1, &BarrierDesc);
 
 		//命令のクローズ
 		_cmdList->Close();
